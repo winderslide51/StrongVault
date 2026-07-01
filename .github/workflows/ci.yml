@@ -16,7 +16,7 @@ permissions:
 jobs:
   lint:
     name: Lint (SwiftLint + swift-format)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Install linters
@@ -28,7 +28,7 @@ jobs:
 
   core-tests:
     name: Core — swift test (sans simulateur)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Cache SwiftPM
@@ -43,7 +43,7 @@ jobs:
 
   app-build:
     name: App iOS — xcodebuild (simulateur iPhone)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
