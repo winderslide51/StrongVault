@@ -1,0 +1,31 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  review:
+    name: pr-reviewer (agent)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Tu agis comme l'agent `pr-reviewer` défini dans `.claude/agents/pr-reviewer.md`.
+            Lis d'abord `CLAUDE.md` (constitution) et le change OpenSpec référencé par la PR
+            (sous `openspec/changes/`). Revois le diff de cette pull request selon l'ordre de
+            priorité de l'agent : sécurité (bloquant), conformité à la spec, correction,
+            interopérabilité KeePassXC, qualité. Poste une revue structurée
+            (Bloquant/Majeur/Mineur/Nit) avec fichier:ligne et correctif suggéré, puis un
+            verdict clair. Ne signale que des problèmes réels et vérifiables.
+          claude_args: '{"model": "claude-opus-4-8"}'

@@ -1,0 +1,43 @@
+name: Spec Guard
+
+# Garde-fou anti-drift : les specs OpenSpec doivent être valides, et toute PR qui touche du
+# code Swift doit s'accompagner d'un change OpenSpec (pas de code sans spec — cf. CLAUDE.md §2).
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  spec-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install OpenSpec
+        run: npm install -g @fission-ai/openspec@latest
+
+      - name: Validate specs & changes
+        run: openspec validate --all --strict || openspec validate --all
+
+      - name: Enforce "no code without spec"
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD")
+          echo "Fichiers modifiés :"; echo "$CHANGED"
+          CODE=$(echo "$CHANGED" | grep -E '^(Sources|App|AppTests|Tests)/.*\.swift$' || true)
+          SPEC=$(echo "$CHANGED" | grep -E '^openspec/changes/[^/]+/' | grep -v '^openspec/changes/archive/' || true)
+          if [ -n "$CODE" ] && [ -z "$SPEC" ]; then
+            echo "::error::Cette PR modifie du code Swift sans change OpenSpec associé (openspec/changes/<nom>/). Voir CLAUDE.md §2."
+            exit 1
+          fi
+          echo "OK : code accompagné d'un change OpenSpec (ou PR sans code)."

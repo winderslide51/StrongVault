@@ -1,0 +1,31 @@
+included:
+  - Sources
+  - App
+  - Tests
+  - AppTests
+
+excluded:
+  - .build
+  - DerivedData
+
+opt_in_rules:
+  - empty_count
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - overridden_super_call
+
+# Sécurité/lisibilité : le force-unwrap et l'IUO sont des erreurs (cf. CLAUDE.md).
+force_unwrapping:
+  severity: error
+force_cast:
+  severity: error
+force_try:
+  severity: error
+
+line_length:
+  warning: 120
+  error: 160
+
+identifier_name:
+  min_length: 2
+  excluded: [id, a, b, x, y, to]

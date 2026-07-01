@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (SwiftLint + swift-format)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install linters
+        run: brew install swiftlint swift-format
+      - name: SwiftLint
+        run: swiftlint lint --strict --reporter github-actions-logging
+      - name: swift-format lint
+        run: swift-format lint --recursive --strict Sources Tests App
+
+  core-tests:
+    name: Core — swift test (sans simulateur)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test --enable-code-coverage
+
+  app-build:
+    name: App iOS — xcodebuild (simulateur iPhone)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Pick an available iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c "import json,sys,itertools; devs=list(itertools.chain.from_iterable(json.load(sys.stdin)['devices'].values())); print(next(x['udid'] for x in devs if x['name'].startswith('iPhone')))")
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+      - name: Build & test app
+        run: |
+          xcodebuild test \
+            -project StrongClone.xcodeproj \
+            -scheme StrongClone \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO

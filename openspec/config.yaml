@@ -1,0 +1,40 @@
+schema: spec-driven
+
+context: |
+  Projet: StrongClone — client KeePass (.kdbx) pour iPhone (iOS 17+), clone simplifié
+  de StrongBox. Connecteur Google Drive uniquement (+ local), déverrouillage FaceID,
+  SANS AutoFill en v1. SwiftUI natif, Swift 6.
+  Architecture en couches: App (SwiftUI) → Sources/StrongCloneCore (Swift pur:
+  Database/Storage/Security). Core testable sans simulateur (swift test).
+  Règles clés (voir CLAUDE.md): jamais de format maison, réutiliser KDBXKit pour .kdbx
+  et swift-google-drive-client pour Drive, interop KeePassXC obligatoire, aucun secret
+  en clair, FaceID via SecAccessControl(.biometryCurrentSet).
+
+rules:
+  proposal:
+    - Inclure une section "Non-goals" (ex: AutoFill, autres connecteurs cloud, macOS/iPad)
+    - Relier chaque exigence à un critère de succès vérifiable
+  specs:
+    - Chaque exigence a au moins un scénario de test traduisible en XCTest
+  tasks:
+    - Séparer explicitement code Core (testable) et code App (device)
+    - Inclure une tâche de tests et une tâche de vérification interop KeePassXC si pertinent
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours

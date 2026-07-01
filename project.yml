@@ -1,0 +1,63 @@
+# Spéc XcodeGen → génère StrongClone.xcodeproj (non commité, cf .gitignore).
+# Régénérer : `xcodegen generate`. Nécessite Xcode complet (donc CI ou poste avec Xcode).
+name: StrongClone
+options:
+  bundleIdPrefix: dev.strongclone
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+packages:
+  # Package Core local (Swift pur, testable). Les dépendances externes (KDBXKit,
+  # swift-google-drive-client) seront ajoutées dans leurs changes OpenSpec respectifs.
+  StrongCloneCore:
+    path: .
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+
+targets:
+  StrongClone:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: StrongCloneCore
+        product: StrongCloneCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.strongclone.app
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        # Familles d'appareils : 1 = iPhone uniquement (cf. périmètre v1).
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "Déverrouiller votre base de mots de passe avec Face ID."
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
+
+  StrongCloneTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AppTests
+    dependencies:
+      - target: StrongClone
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.strongclone.app.tests
+
+schemes:
+  StrongClone:
+    build:
+      targets:
+        StrongClone: all
+        StrongCloneTests: [test]
+    test:
+      targets:
+        - StrongCloneTests
+      gatherCoverageData: true
