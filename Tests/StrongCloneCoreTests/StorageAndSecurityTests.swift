@@ -1,24 +1,25 @@
 import XCTest
+
 @testable import StrongCloneCore
 
 final class InMemoryStorageProviderTests: XCTestCase {
     func testLoadReturnsStoredData() async throws {
         let provider = InMemoryStorageProvider(data: Data("hello".utf8))
         let data = try await provider.load()
-        XCTAssertEqual(String(decoding: data, as: UTF8.self), "hello")
+        XCTAssertEqual(String(bytes: data, encoding: .utf8), "hello")
     }
 
     func testSaveThenLoadRoundTrip() async throws {
         let provider = InMemoryStorageProvider()
         let meta = try await provider.save(Data("v1".utf8), expectedRemote: nil)
         let loaded = try await provider.load()
-        XCTAssertEqual(String(decoding: loaded, as: UTF8.self), "v1")
+        XCTAssertEqual(String(bytes: loaded, encoding: .utf8), "v1")
         XCTAssertEqual(meta.sizeBytes, 2)
     }
 
     func testConflictWhenExpectedRemoteIsStale() async throws {
         let provider = InMemoryStorageProvider()
-        let firstMeta = try await provider.metadata()          // révision 0
+        let firstMeta = try await provider.metadata()  // révision 0
         _ = try await provider.save(Data("v1".utf8), expectedRemote: firstMeta)  // -> révision 1
 
         // On tente d'écrire en s'appuyant sur l'ancienne métadonnée -> conflit attendu.
@@ -47,6 +48,8 @@ final class AutoLockPolicyTests: XCTestCase {
 
     func testNeverLocksWhenDisabled() {
         let policy = AutoLockPolicy(timeout: nil, lockOnBackground: false)
-        XCTAssertFalse(policy.shouldLock(lastActivity: t0, now: t0.addingTimeInterval(10_000), didEnterBackground: true))
+        XCTAssertFalse(
+            policy.shouldLock(lastActivity: t0, now: t0.addingTimeInterval(10_000), didEnterBackground: true)
+        )
     }
 }

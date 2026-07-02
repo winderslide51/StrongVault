@@ -1,5 +1,5 @@
-import SwiftUI
 import StrongCloneCore
+import SwiftUI
 
 /// Écran racine — squelette de la liste des bases (change `scaffolding`).
 /// Les écrans réels (ajout de base locale/Drive, déverrouillage, navigation) arrivent
