@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 // StrongClone Core — logique métier en Swift pur, sans UIKit/SwiftUI ni dépendance device.
@@ -10,8 +10,8 @@ import PackageDescription
 let package = Package(
     name: "StrongCloneCore",
     platforms: [
-        .iOS(.v17),
-        .macOS(.v14),
+        .iOS(.v26),
+        .macOS(.v15),
     ],
     products: [
         .library(name: "StrongCloneCore", targets: ["StrongCloneCore"]),

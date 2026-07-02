@@ -6,7 +6,7 @@
 
 ## 1. Ce qu'on construit
 
-Un client **KeePass `.kdbx`** pour **iPhone** (iOS 17+), clone fidèle mais simplifié de
+Un client **KeePass `.kdbx`** pour **iPhone** (iOS 26+), clone fidèle mais simplifié de
 StrongBox : connecteur **Google Drive** uniquement (+ stockage local), **déverrouillage
 FaceID**, **sans AutoFill** en v1, en **SwiftUI natif**.
 

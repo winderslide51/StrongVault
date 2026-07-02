@@ -2,7 +2,7 @@ import Foundation
 
 /// Métadonnées d'un fichier de base distant/local, utiles à la détection de conflit.
 public struct StorageMetadata: Sendable, Equatable {
-    public var identifier: String        // chemin local, ou fileId Drive
+    public var identifier: String  // chemin local, ou fileId Drive
     public var displayName: String
     public var modifiedAt: Date?
     public var sizeBytes: Int?
@@ -18,7 +18,7 @@ public struct StorageMetadata: Sendable, Equatable {
 public enum StorageError: Error, Equatable, Sendable {
     case notFound
     case accessDenied
-    case conflict(remote: StorageMetadata)   // la version distante a changé
+    case conflict(remote: StorageMetadata)  // la version distante a changé
     case network(String)
     case unknown(String)
 }

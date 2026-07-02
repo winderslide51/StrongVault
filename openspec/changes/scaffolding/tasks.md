@@ -6,7 +6,7 @@
 
 ## 2. Core (Swift pur, testable)
 
-- [x] 2.1 `Package.swift` (target `StrongCloneCore`, Swift 6, iOS 17 / macOS 14)
+- [x] 2.1 `Package.swift` (target `StrongCloneCore`, Swift 6, iOS 26 / macOS 15)
 - [x] 2.2 Modèles domaine `DomainModels.swift` (Group/Entry/CustomField/TotpConfig/Attachment)
 - [x] 2.3 `StorageProvider` + `StorageError` + `InMemoryStorageProvider`
 - [x] 2.4 `MasterKeyStore` (protocole) + `AutoLockPolicy` (logique pure)
@@ -20,7 +20,7 @@
 
 ## 4. App iOS (device — buildée/testée en CI)
 
-- [x] 4.1 `project.yml` XcodeGen (app iPhone iOS 17, NSFaceIDUsageDescription, dép. Core)
+- [x] 4.1 `project.yml` XcodeGen (app iPhone iOS 26, NSFaceIDUsageDescription, dép. Core)
 - [x] 4.2 Squelette `App/` (`StrongCloneApp`, `RootView`) + `AppTests/` smoke test
 - [x] 4.3 Validation de `project.yml` via `xcodegen generate`
 

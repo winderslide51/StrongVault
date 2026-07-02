@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  Projet: StrongClone — client KeePass (.kdbx) pour iPhone (iOS 17+), clone simplifié
+  Projet: StrongClone — client KeePass (.kdbx) pour iPhone (iOS 26+), clone simplifié
   de StrongBox. Connecteur Google Drive uniquement (+ local), déverrouillage FaceID,
   SANS AutoFill en v1. SwiftUI natif, Swift 6.
   Architecture en couches: App (SwiftUI) → Sources/StrongCloneCore (Swift pur:
@@ -12,7 +12,7 @@ context: |
 
 rules:
   proposal:
-    - Inclure une section "Non-goals" (ex: AutoFill, autres connecteurs cloud, macOS/iPad)
+    - Inclure une section Non-goals (par ex. AutoFill, autres connecteurs cloud, macOS/iPad)
     - Relier chaque exigence à un critère de succès vérifiable
   specs:
     - Chaque exigence a au moins un scénario de test traduisible en XCTest

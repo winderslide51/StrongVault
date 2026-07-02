@@ -40,10 +40,10 @@ public struct TotpConfig: Sendable, Equatable {
         case sha512 = "SHA512"
     }
 
-    public var secret: String        // secret Base32
+    public var secret: String  // secret Base32
     public var algorithm: Algorithm
     public var digits: Int
-    public var period: Int           // secondes
+    public var period: Int  // secondes
 
     public init(secret: String, algorithm: Algorithm = .sha1, digits: Int = 6, period: Int = 30) {
         self.secret = secret

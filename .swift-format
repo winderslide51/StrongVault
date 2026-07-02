@@ -7,7 +7,7 @@
   "lineBreakBeforeEachArgument": false,
   "rules": {
     "AlwaysUseLowerCamelCase": true,
-    "NoForceUnwrapping": true,
+    "NeverForceUnwrap": true,
     "UseShorthandTypeNames": true,
     "OrderedImports": true
   }

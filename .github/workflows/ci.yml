@@ -16,7 +16,7 @@ permissions:
 jobs:
   lint:
     name: Lint (SwiftLint + swift-format)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Install linters
@@ -28,9 +28,15 @@ jobs:
 
   core-tests:
     name: Core — swift test (sans simulateur)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Select latest Xcode (Swift 6.2+)
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          if [ -z "$XC" ]; then echo "Aucun Xcode trouvé:"; ls -d /Applications/Xcode_*.app; exit 1; fi
+          sudo xcode-select -s "$XC"
+          swift --version
       - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
@@ -43,17 +49,42 @@ jobs:
 
   app-build:
     name: App iOS — xcodebuild (simulateur iPhone)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Select latest Xcode (Swift 6.2+)
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          if [ -z "$XC" ]; then echo "Aucun Xcode trouvé:"; ls -d /Applications/Xcode_*.app; exit 1; fi
+          sudo xcode-select -s "$XC"
+          swift --version
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
-      - name: Pick an available iPhone simulator
+      - name: Pick an available iPhone simulator (runtime iOS le plus récent)
         id: sim
         run: |
-          UDID=$(xcrun simctl list devices available --json | python3 -c "import json,sys,itertools; devs=list(itertools.chain.from_iterable(json.load(sys.stdin)['devices'].values())); print(next(x['udid'] for x in devs if x['name'].startswith('iPhone')))")
+          # On choisit un iPhone sur le runtime iOS le plus récent : l'app cible iOS 26,
+          # un simulateur sur un runtime plus ancien serait jugé inéligible par xcodebuild.
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys, re
+          devices = json.load(sys.stdin)["devices"]
+          best = None
+          for runtime, devs in devices.items():
+              m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not m:
+                  continue
+              version = (int(m.group(1)), int(m.group(2)))
+              for d in devs:
+                  if d.get("isAvailable", True) and d["name"].startswith("iPhone"):
+                      if best is None or version > best[0]:
+                          best = (version, d["udid"])
+          if best is None:
+              sys.exit("Aucun simulateur iPhone iOS disponible")
+          print(best[1])
+          ')
+          echo "Simulateur retenu: $UDID"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
       - name: Build & test app
         run: |

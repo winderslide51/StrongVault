@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import StrongCloneCore
 
 final class DomainModelsTests: XCTestCase {
@@ -7,7 +8,7 @@ final class DomainModelsTests: XCTestCase {
             name: "Root",
             entries: [Entry(title: "A")],
             subgroups: [
-                Group(name: "Sub", entries: [Entry(title: "B"), Entry(title: "C")]),
+                Group(name: "Sub", entries: [Entry(title: "B"), Entry(title: "C")])
             ]
         )
         let titles = root.allEntriesRecursive.map(\.title).sorted()
