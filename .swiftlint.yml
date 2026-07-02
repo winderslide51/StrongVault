@@ -29,7 +29,7 @@ line_length:
 # « master key/password » = terminologie standard des gestionnaires KeePass (cf. « clé
 # maître » dans CLAUDE.md §4). Ce n'est pas un usage master/slave : on garde le terme.
 inclusive_language:
-  allowed_terms:
+  override_allowed_terms:
     - master
 
 identifier_name:
