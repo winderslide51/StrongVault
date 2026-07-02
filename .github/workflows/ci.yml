@@ -31,6 +31,12 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Select latest Xcode (Swift 6.2+)
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          if [ -z "$XC" ]; then echo "Aucun Xcode trouvé:"; ls -d /Applications/Xcode_*.app; exit 1; fi
+          sudo xcode-select -s "$XC"
+          swift --version
       - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
@@ -46,6 +52,12 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Select latest Xcode (Swift 6.2+)
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          if [ -z "$XC" ]; then echo "Aucun Xcode trouvé:"; ls -d /Applications/Xcode_*.app; exit 1; fi
+          sudo xcode-select -s "$XC"
+          swift --version
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
