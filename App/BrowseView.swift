@@ -1,104 +1,87 @@
 import StrongCloneCore
 import SwiftUI
-import UIKit
-import UniformTypeIdentifiers
 
-/// Navigation minimale : liste à plat des entrées de la base ouverte, avec révélation et copie
-/// du mot de passe (masqué par défaut). L'arborescence complète, le détail riche et le TOTP
-/// arrivent avec le change de suivi.
+/// Navigation en **arbre** : chaque niveau liste les sous-groupes (navigables) puis les entrées
+/// du groupe courant. Sélectionner une entrée ouvre `EntryDetailView` (détail complet + TOTP).
 struct BrowseView: View {
     let document: DatabaseDocument
 
+    var body: some View {
+        GroupListView(group: document.root, title: document.name ?? document.root.name)
+    }
+}
+
+/// Un niveau de l'arborescence : sous-groupes en tête (navigation récursive), entrées ensuite.
+private struct GroupListView: View {
+    // Qualifié : `Group` est ambigu avec `SwiftUI.Group`.
+    let group: StrongCloneCore.Group
+    let title: String
+
+    private var subgroups: [StrongCloneCore.Group] {
+        group.subgroups.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
     private var entries: [Entry] {
-        document.root.allEntriesRecursive.sorted {
+        group.entries.sorted {
             $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
         }
     }
 
     var body: some View {
         List {
-            if entries.isEmpty {
-                ContentUnavailableView("Base vide", systemImage: "tray")
-            } else {
-                ForEach(entries) { entry in
-                    EntryRow(entry: entry)
+            if subgroups.isEmpty, entries.isEmpty {
+                ContentUnavailableView("Groupe vide", systemImage: "tray")
+            }
+
+            if !subgroups.isEmpty {
+                Section("Groupes") {
+                    ForEach(subgroups) { subgroup in
+                        NavigationLink {
+                            GroupListView(group: subgroup, title: name(of: subgroup))
+                        } label: {
+                            Label(name(of: subgroup), systemImage: "folder")
+                        }
+                    }
+                }
+            }
+
+            if !entries.isEmpty {
+                Section("Entrées") {
+                    ForEach(entries) { entry in
+                        NavigationLink {
+                            EntryDetailView(entry: entry)
+                        } label: {
+                            EntryRowLabel(entry: entry)
+                        }
+                    }
                 }
             }
         }
-        .navigationTitle(document.name ?? "Base")
+        .navigationTitle(title.isEmpty ? "Base" : title)
         .navigationBarTitleDisplayMode(.inline)
     }
-}
 
-/// Une entrée : titre, identifiant, et mot de passe masqué révélable + copiable.
-private struct EntryRow: View {
-    let entry: Entry
-
-    @State private var revealed = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(entry.title.isEmpty ? "(sans titre)" : entry.title)
-                .font(.headline)
-
-            if !entry.username.isEmpty {
-                HStack {
-                    Label(entry.username, systemImage: "person")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button {
-                        Clipboard.copy(entry.username)
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Copier l'identifiant")
-                }
-            }
-
-            HStack {
-                Image(systemName: "key")
-                Text(revealed ? entry.password.reveal() : "••••••••")
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(revealed ? .primary : .secondary)
-                Spacer()
-                Button {
-                    revealed.toggle()
-                } label: {
-                    Image(systemName: revealed ? "eye.slash" : "eye")
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(revealed ? "Masquer le mot de passe" : "Révéler le mot de passe")
-
-                Button {
-                    entry.password.withRevealed { Clipboard.copy($0) }
-                } label: {
-                    Image(systemName: "doc.on.doc")
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Copier le mot de passe")
-            }
-
-            if !entry.url.isEmpty {
-                Text(entry.url)
-                    .font(.caption)
-                    .foregroundStyle(.tint)
-            }
-        }
-        .padding(.vertical, 4)
+    private func name(of group: StrongCloneCore.Group) -> String {
+        group.name.isEmpty ? "(sans nom)" : group.name
     }
 }
 
-/// Copie presse-papier avec **auto-effacement** (CLAUDE.md §5) : l'item expire après un délai
-/// via l'API native `UIPasteboard`. `localOnly` empêche la propagation du secret vers les autres
-/// appareils du compte iCloud (Handoff / Universal Clipboard), hors du contrôle de l'expiration.
-private enum Clipboard {
-    static let clearDelay: TimeInterval = 30
+/// Ligne d'entrée : titre + identifiant en sous-titre. Aucun secret affiché ici (le mot de passe
+/// n'est révélé que dans le détail, sur action explicite).
+private struct EntryRowLabel: View {
+    let entry: Entry
 
-    static func copy(_ value: String) {
-        let item = [UTType.utf8PlainText.identifier: value]
-        let expiry = Date(timeIntervalSinceNow: clearDelay)
-        UIPasteboard.general.setItems([item], options: [.expirationDate: expiry, .localOnly: true])
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(entry.title.isEmpty ? "(sans titre)" : entry.title)
+                .font(.body)
+            if !entry.username.isEmpty {
+                Text(entry.username)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }

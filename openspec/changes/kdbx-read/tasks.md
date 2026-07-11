@@ -19,30 +19,44 @@
 
 - [x] 2.1 `DatabaseDocument.open(data:credentials:) throws` via `KDBXReader.parse` + type
       partagé `DatabaseCredential` (point de couplage Drive/FaceID).
-- [~] 2.2 Mapping `KDBXContent` → `Group`/`Entry` (champs standard + dates). `CustomField`/
-      `TotpConfig`/`Attachment` : **reportés** au change de suivi (hors tranche minimale).
+- [x] 2.2 Mapping `KDBXContent` → `Group`/`Entry` (champs standard + dates), plus `CustomField`
+      (tous les champs hors standards/TOTP, `isProtected` reflétant `Protected="True"` KDBX),
+      `TotpConfig` (parsing otpauth URI **et** `TOTP Seed`/`TOTP Settings` KeePassXC) et
+      `Attachment` (binaires `.inline` et `.ref` résolus via le pool `innerHeader.binaryContent`).
+      `mapEntry`/`mapGroup` passés en `internal` pour être exercés directement par les tests.
 - [x] 2.3 `Entry.password` → `ProtectedSecret` (révélé à la demande, jamais `String` en clair,
       `description` masquée) ; tests existants adaptés (init inchangé grâce au string literal).
 - [x] 2.4 Erreurs typées `DatabaseOpenError` (wrongCredentials, missingCredentials,
       unsupportedVersion, corrupted, invalidKeyFile) mappées depuis `KDBXReader.Error`.
-- [ ] 2.5 Génération TOTP (Base32 + HOTP/TOTP) — **reporté** (change de suivi).
+- [x] 2.5 Génération TOTP dans `TotpGenerator` : décodage Base32 (RFC 4648, tolérant
+      padding/espaces/casse) + HOTP/TOTP (RFC 4226/6238) via CryptoKit HMAC (SHA1/256/512),
+      `digits`/`period` depuis `TotpConfig`, plus `remainingSeconds(period:at:)` pour le
+      compte à rebours. Secret jamais journalisé.
 
 ## 3. App — accès fichier & UI (device, buildé/testé en CI)
 
 - [x] 3.1 `LocalStorageProvider` : `fileImporter` + security-scoped bookmark, `load()`
       (conforme au protocole Core `StorageProvider`, lecture seule).
 - [x] 3.2 Écran Unlock (mot de passe + key file optionnel, erreurs typées affichées).
-- [~] 3.3 Écran Browse **minimal** : liste à plat des entrées (`allEntriesRecursive`). Arbre
-      complet des groupes reporté au change de suivi.
-- [~] 3.4 Révéler/copier (mot de passe masqué par défaut, presse-papier auto-effacé §5). TOTP +
-      compte à rebours, champs custom et pièces jointes **reportés** (tranche minimale).
+- [x] 3.3 Écran Browse en **arbre** : chaque niveau liste les sous-groupes (navigation
+      récursive) puis les entrées du groupe courant ; tap sur une entrée → `EntryDetailView`.
+      `Clipboard` extrait dans `App/Clipboard.swift` (partagé).
+- [x] 3.4 `EntryDetailView` : identifiant (copie), mot de passe masqué révélable/copiable
+      (`ProtectedSecret`), URL, notes, **TOTP** (code + compte à rebours rafraîchi chaque
+      seconde via `TimelineView`, copie), champs custom (masqués si `isProtected`, révélables)
+      et liste des pièces jointes (nom + taille, sans aperçu/export en v1). Copies via
+      `Clipboard` (auto-effacement §5 + `localOnly`).
 
 ## 4. Tests
 
 - [x] 4.1 Tests Core mapping + erreurs typées (`DatabaseDocumentTests` : mauvais mot de passe,
       identifiants manquants, key file).
 - [x] 4.2 Round-trip interne de lecture (contenu golden ⇔ modèle domaine).
-- [ ] 4.3 Known-Answer Tests TOTP (vecteurs RFC 6238) + décodage Base32 — **reporté** (avec §2.5).
+- [x] 4.3 Known-Answer Tests TOTP (`TotpGeneratorTests`) : vecteurs RFC 6238 Annexe B
+      (SHA1/256/512, digits 8, timestamps 59…20000000000), décodage Base32 RFC 4648 (+ entrées
+      invalides → nil), parsing otpauth URI et `TOTP Seed`/`TOTP Settings`. Mapping enrichi
+      couvert par `DatabaseMappingTests` (customFields protégés/non, TOTP, pièces jointes
+      inline/ref).
 - [x] 4.4 Test « secret non exposé » : le mot de passe n'apparaît pas en clair dans le modèle
       (`description`/`reflecting` masqués, révélation explicite requise).
 
