@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 /// À l'ouverture réussie, remonte le `DatabaseDocument` au parent (navigation vers Browse).
 struct UnlockView: View {
     let database: DatabaseRef
+    let appModel: AppModel
     let onUnlocked: (DatabaseDocument) -> Void
 
     @State private var password = ""
@@ -79,7 +80,7 @@ struct UnlockView: View {
             password: password.isEmpty ? nil : password,
             keyFile: keyFileData
         )
-        let provider = database.provider
+        let provider = appModel.provider(for: database)
 
         Task {
             do {

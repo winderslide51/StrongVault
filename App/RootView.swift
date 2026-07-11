@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 struct RootView: View {
     @State private var model = AppModel()
     @State private var showingImporter = false
+    @State private var showingDrivePicker = false
     @State private var importError: String?
 
     /// Type `.kdbx` (non enregistré au système) : on le dérive de l'extension, avec repli `.data`.
@@ -24,6 +25,7 @@ struct RootView: View {
                     } actions: {
                         Button("Ajouter une base locale") { showingImporter = true }
                             .buttonStyle(.borderedProminent)
+                        Button("Ajouter depuis Google Drive") { showingDrivePicker = true }
                     }
                 } else {
                     List {
@@ -40,8 +42,17 @@ struct RootView: View {
             .navigationTitle("StrongClone")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingImporter = true
+                    Menu {
+                        Button {
+                            showingImporter = true
+                        } label: {
+                            Label("Base locale…", systemImage: "folder")
+                        }
+                        Button {
+                            showingDrivePicker = true
+                        } label: {
+                            Label("Google Drive…", systemImage: "cloud")
+                        }
                     } label: {
                         Label("Ajouter", systemImage: "plus")
                     }
@@ -49,7 +60,7 @@ struct RootView: View {
             }
             .navigationDestination(for: String.self) { databaseID in
                 if let database = model.databases.first(where: { $0.id == databaseID }) {
-                    UnlockGate(database: database)
+                    UnlockGate(database: database, appModel: model)
                 }
             }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: Self.kdbxTypes) { result in
@@ -69,6 +80,15 @@ struct RootView: View {
             } message: {
                 Text(importError ?? "")
             }
+            .sheet(isPresented: $showingDrivePicker) {
+                AddDriveDatabaseView(appModel: model) { fileId, name in
+                    model.addDriveDatabase(fileId: fileId, displayName: name)
+                }
+            }
+            .onOpenURL { url in
+                // Redirection OAuth Google (schéma d'URL de l'app) → échange de jeton via le SDK.
+                Task { await model.handleDriveRedirect(url) }
+            }
         }
     }
 }
@@ -77,13 +97,14 @@ struct RootView: View {
 /// `UnlockView` ; une fois le document obtenu, on bascule sur `BrowseView`.
 private struct UnlockGate: View {
     let database: DatabaseRef
+    let appModel: AppModel
     @State private var document: DatabaseDocument?
 
     var body: some View {
         if let document {
             BrowseView(document: document)
         } else {
-            UnlockView(database: database) { opened in
+            UnlockView(database: database, appModel: appModel) { opened in
                 document = opened
             }
         }

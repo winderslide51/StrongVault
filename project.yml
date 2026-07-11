@@ -10,10 +10,14 @@ options:
 packages:
   # Package Core local (Swift pur, testable). KDBXKit (change `kdbx-read`) est tiré
   # **transitivement** via ce package (déclaré dans Package.swift) : l'app n'importe pas
-  # KDBXKit directement, seul Core le fait. swift-google-drive-client viendra de même avec
-  # le change `google-drive`.
+  # KDBXKit directement, seul Core le fait.
   StrongCloneCore:
     path: .
+  # SDK Google Drive (change `google-drive`) : utilisé UNIQUEMENT par la cible App
+  # (`GoogleDriveClientLive`), pas par le Core → le Core reste sans dépendance SDK.
+  GoogleDriveClient:
+    url: https://github.com/darrarski/swift-google-drive-client
+    from: 0.12.1
 
 settings:
   base:
@@ -34,6 +38,8 @@ targets:
     dependencies:
       - package: StrongCloneCore
         product: StrongCloneCore
+      - package: GoogleDriveClient
+        product: GoogleDriveClient
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.strongclone.app
