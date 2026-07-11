@@ -17,12 +17,15 @@
 
 ## 2. Core — ouverture & mapping (Swift pur, testable)
 
-- [ ] 2.1 `DatabaseDocument` : `open(data:credentials:) throws` via `KDBXReader.parse`
-- [ ] 2.2 Mapping `KDBXContent` → `Group`/`Entry`/`CustomField`/`TotpConfig`/`Attachment`
-- [ ] 2.3 Ajuster `Entry` : secrets révélés à la demande (accessor scoped) au lieu de
-      `password: String` en clair ; adapter les tests existants
-- [ ] 2.4 Erreurs typées (mauvais mot de passe, version non supportée, corruption)
-- [ ] 2.5 Génération TOTP (Base32 + HOTP/TOTP)
+- [x] 2.1 `DatabaseDocument.open(data:credentials:) throws` via `KDBXReader.parse` + type
+      partagé `DatabaseCredential` (point de couplage Drive/FaceID).
+- [~] 2.2 Mapping `KDBXContent` → `Group`/`Entry` (champs standard + dates). `CustomField`/
+      `TotpConfig`/`Attachment` : **reportés** au change de suivi (hors tranche minimale).
+- [x] 2.3 `Entry.password` → `ProtectedSecret` (révélé à la demande, jamais `String` en clair,
+      `description` masquée) ; tests existants adaptés (init inchangé grâce au string literal).
+- [x] 2.4 Erreurs typées `DatabaseOpenError` (wrongCredentials, missingCredentials,
+      unsupportedVersion, corrupted, invalidKeyFile) mappées depuis `KDBXReader.Error`.
+- [ ] 2.5 Génération TOTP (Base32 + HOTP/TOTP) — **reporté** (change de suivi).
 
 ## 3. App — accès fichier & UI (device, buildé/testé en CI)
 
@@ -34,10 +37,12 @@
 
 ## 4. Tests
 
-- [ ] 4.1 Tests Core mapping + erreurs typées (mauvais mot de passe, corruption, versions)
-- [ ] 4.2 Round-trip interne de lecture (contenu golden ⇔ modèle domaine)
-- [ ] 4.3 Known-Answer Tests TOTP (vecteurs RFC 6238) + décodage Base32
-- [ ] 4.4 Test « secret non exposé » : le mot de passe n'apparaît pas en clair dans le modèle
+- [x] 4.1 Tests Core mapping + erreurs typées (`DatabaseDocumentTests` : mauvais mot de passe,
+      identifiants manquants, key file).
+- [x] 4.2 Round-trip interne de lecture (contenu golden ⇔ modèle domaine).
+- [ ] 4.3 Known-Answer Tests TOTP (vecteurs RFC 6238) + décodage Base32 — **reporté** (avec §2.5).
+- [x] 4.4 Test « secret non exposé » : le mot de passe n'apparaît pas en clair dans le modèle
+      (`description`/`reflecting` masqués, révélation explicite requise).
 
 ## 5. Interop KeePassXC (CI)
 

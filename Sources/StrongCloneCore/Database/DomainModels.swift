@@ -53,12 +53,56 @@ public struct TotpConfig: Sendable, Equatable {
     }
 }
 
+/// Secret révélé **à la demande** (CLAUDE.md §4 : pas de secret en clair persistant dans le
+/// modèle). Le mot de passe n'est jamais stocké comme `String` : on garde les octets UTF-8 et
+/// on ne matérialise le texte que sur appel explicite `reveal()` / `withRevealed`. Le type
+/// refuse de se décrire en clair (`description` masquée) pour éviter toute fuite via logs/print.
+///
+/// Note honnête : ceci discipline l'API et l'affichage ; le zéroïsage mémoire fort vit dans
+/// KDBXKit (`SecureBytes`). Le modèle domaine est un instantané déchiffré en lecture seule,
+/// purgé au verrouillage par la couche App (change `faceid-unlock`).
+public struct ProtectedSecret: Sendable, Equatable, ExpressibleByStringLiteral {
+    private let bytes: [UInt8]
+
+    public init(_ string: String) {
+        bytes = Array(string.utf8)
+    }
+
+    public init(stringLiteral value: String) {
+        self.init(value)
+    }
+
+    /// Reconstruit un secret depuis des octets UTF-8 (mapping depuis KDBXKit).
+    public init(utf8Bytes: [UInt8]) {
+        bytes = utf8Bytes
+    }
+
+    public var isEmpty: Bool { bytes.isEmpty }
+
+    /// Matérialise le texte en clair. À n'appeler qu'au moment de l'affichage/copie explicite.
+    /// Les octets proviennent toujours d'un `String` UTF-8 valide (construction) → jamais nil.
+    public func reveal() -> String {
+        String(bytes: bytes, encoding: .utf8) ?? ""
+    }
+
+    /// Révélation à portée limitée : le clair ne vit que le temps de `body`.
+    public func withRevealed<R>(_ body: (String) throws -> R) rethrows -> R {
+        try body(reveal())
+    }
+}
+
+extension ProtectedSecret: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String { bytes.isEmpty ? "" : "••••••" }
+    public var debugDescription: String { "ProtectedSecret(\(description))" }
+}
+
 /// Entrée KeePass (un « compte »).
 public struct Entry: Sendable, Equatable, Identifiable {
     public let id: UUID
     public var title: String
     public var username: String
-    public var password: String
+    /// Mot de passe protégé, révélé à la demande (jamais `String` en clair, cf. `ProtectedSecret`).
+    public var password: ProtectedSecret
     public var url: String
     public var notes: String
     public var iconId: Int
@@ -72,7 +116,7 @@ public struct Entry: Sendable, Equatable, Identifiable {
         id: UUID = UUID(),
         title: String = "",
         username: String = "",
-        password: String = "",
+        password: ProtectedSecret = "",
         url: String = "",
         notes: String = "",
         iconId: Int = 0,
