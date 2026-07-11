@@ -121,8 +121,10 @@ struct UnlockView: View {
             return "Version KDBX non supportée (\(major).\(minor))."
         case .invalidKeyFile:
             return "Key file invalide."
-        case let .corrupted(reason):
-            return "Fichier corrompu : \(reason)"
+        case .corrupted:
+            // On n'affiche pas le détail interne (`reason`) : message générique côté UI pour
+            // éviter d'exposer un éventuel fragment sensible dans les erreurs de bas niveau.
+            return "Fichier corrompu ou illisible."
         }
     }
 }

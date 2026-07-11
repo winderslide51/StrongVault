@@ -112,6 +112,9 @@ extension DatabaseDocument {
             entry.strings.first { $0.key == key }?.value.revealedString ?? ""
         }
         let password = entry.strings.first { $0.key == "Password" }?.value
+        // Limite connue : `revealedString` fait transiter le secret par un `String` Swift non
+        // zéroïsable avant re-stockage en octets (`ProtectedSecret`). Le secret est de toute
+        // façon déjà déchiffré ; le zéroïsage mémoire fort reste du ressort de KDBXKit.
         return Entry(
             id: entry.uuid,
             title: string("Title"),

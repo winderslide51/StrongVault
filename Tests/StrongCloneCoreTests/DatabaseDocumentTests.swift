@@ -62,6 +62,13 @@ final class DatabaseDocumentTests: XCTestCase {
         }
     }
 
+    /// Les identifiants ne fuient pas via `description`/`reflecting` (masquage défensif).
+    func testCredentialDescriptionIsMasked() {
+        let credential = DatabaseCredential(password: "correct horse battery staple")
+        XCTAssertFalse(String(describing: credential).contains("correct horse"))
+        XCTAssertFalse(String(reflecting: credential).contains("correct horse"))
+    }
+
     /// « Secret non exposé » (§4.4) : le mot de passe n'apparaît pas en clair dans le modèle
     /// (ni via `description`/`debugDescription`, ni via une propriété `String`).
     func testPasswordNotExposedInCleartext() throws {

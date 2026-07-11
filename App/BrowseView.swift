@@ -91,14 +91,14 @@ private struct EntryRow: View {
 }
 
 /// Copie presse-papier avec **auto-effacement** (CLAUDE.md §5) : l'item expire après un délai
-/// via l'API native `UIPasteboard`, sans laisser le secret traîner indéfiniment.
+/// via l'API native `UIPasteboard`. `localOnly` empêche la propagation du secret vers les autres
+/// appareils du compte iCloud (Handoff / Universal Clipboard), hors du contrôle de l'expiration.
 private enum Clipboard {
     static let clearDelay: TimeInterval = 30
 
     static func copy(_ value: String) {
-        UIPasteboard.general.setItems(
-            [[UTType.utf8PlainText.identifier: value]],
-            options: [.expirationDate: Date().addingTimeInterval(clearDelay)]
-        )
+        let item = [UTType.utf8PlainText.identifier: value]
+        let expiry = Date(timeIntervalSinceNow: clearDelay)
+        UIPasteboard.general.setItems([item], options: [.expirationDate: expiry, .localOnly: true])
     }
 }

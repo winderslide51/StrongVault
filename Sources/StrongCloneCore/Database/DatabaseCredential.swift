@@ -27,3 +27,16 @@ public struct DatabaseCredential: Sendable {
         (password?.isEmpty ?? true) && keyFile == nil && rawKeyData == nil
     }
 }
+
+extension DatabaseCredential: CustomStringConvertible, CustomDebugStringConvertible {
+    // Masquage défensif : un `String(describing:)`/`reflecting` accidentel (log, message
+    // d'erreur générique) ne doit jamais exposer le mot de passe ou la clé en clair.
+    public var description: String {
+        let pw = password == nil ? "nil" : "••••"
+        let kf = keyFile.map { "<\($0.count) o>" } ?? "nil"
+        let raw = rawKeyData == nil ? "nil" : "<32 o>"
+        return "DatabaseCredential(password: \(pw), keyFile: \(kf), rawKeyData: \(raw))"
+    }
+
+    public var debugDescription: String { description }
+}
