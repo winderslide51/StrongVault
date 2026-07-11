@@ -53,6 +53,18 @@ public struct TotpConfig: Sendable, Equatable {
     }
 }
 
+extension TotpConfig: CustomStringConvertible, CustomDebugStringConvertible {
+    /// Le seed est un secret : `String(describing:)`/`String(reflecting:)` sur une `Entry`
+    /// (logs, débogueur) ne doit jamais le matérialiser en clair. Les paramètres non secrets
+    /// (algorithme, digits, période) restent visibles pour le diagnostic.
+    public var description: String {
+        let masked = secret.isEmpty ? "" : "••••"
+        return "TotpConfig(secret: \(masked), algorithm: \(algorithm.rawValue), digits: \(digits), period: \(period))"
+    }
+
+    public var debugDescription: String { description }
+}
+
 /// Secret révélé **à la demande** (CLAUDE.md §4 : pas de secret en clair persistant dans le
 /// modèle). Le mot de passe n'est jamais stocké comme `String` : on garde les octets UTF-8 et
 /// on ne matérialise le texte que sur appel explicite `reveal()` / `withRevealed`. Le type

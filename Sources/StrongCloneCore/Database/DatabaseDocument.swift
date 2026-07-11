@@ -42,7 +42,10 @@ extension DatabaseDocument {
         } catch {
             throw mapReaderError(error)
         }
-        let root = mapGroup(content.database.root.group)
+        // Pool de binaires (KDBX 4.x) : les pièces jointes `.ref(index)` pointent ici. On mappe
+        // vers les seuls octets, c'est tout ce dont `Attachment` a besoin.
+        let binaryPool = content.innerHeader.binaryContent.map(\.data)
+        let root = mapGroup(content.database.root.group, binaryPool: binaryPool)
         return DatabaseDocument(name: content.database.meta.databaseName, root: root)
     }
 
@@ -94,20 +97,24 @@ extension DatabaseDocument {
 
     // MARK: - Mapping KDBXKit → modèle domaine
 
-    /// Champs standard KeePass, mappés vers les propriétés dédiées de `Entry`.
-    private static let standardKeys: Set<String> = ["Title", "UserName", "Password", "URL", "Notes"]
+    /// Champs standard KeePass, mappés vers les propriétés dédiées de `Entry`. Tout autre champ
+    /// (hors champs TOTP réservés) devient un `CustomField`.
+    static let standardKeys: Set<String> = ["Title", "UserName", "Password", "URL", "Notes"]
 
-    private static func mapGroup(_ group: KDBX.Group) -> Group {
+    /// `internal` (pas `private`) pour être exerçable directement par les tests unitaires
+    /// (`@testable import`) sur des `KDBX.Group` construits en mémoire — KeePassXC ne sait pas
+    /// injecter TOTP/pièces jointes en CLI.
+    static func mapGroup(_ group: KDBX.Group, binaryPool: [Data]) -> Group {
         Group(
             id: group.uuid,
             name: group.name ?? "",
             iconId: Int(group.iconID),
-            entries: group.entries.map(mapEntry),
-            subgroups: group.groups.map(mapGroup)
+            entries: group.entries.map { mapEntry($0, binaryPool: binaryPool) },
+            subgroups: group.groups.map { mapGroup($0, binaryPool: binaryPool) }
         )
     }
 
-    private static func mapEntry(_ entry: KDBX.Entry) -> Entry {
+    static func mapEntry(_ entry: KDBX.Entry, binaryPool: [Data]) -> Entry {
         func string(_ key: String) -> String {
             entry.strings.first { $0.key == key }?.value.revealedString ?? ""
         }
@@ -123,13 +130,70 @@ extension DatabaseDocument {
             url: string("URL"),
             notes: string("Notes"),
             iconId: Int(entry.iconID),
-            // TOTP, champs custom et pièces jointes : mappés dans le change de suivi (tranche
-            // minimale = champs standard + révéler/copier le mot de passe).
-            customFields: [],
-            totp: nil,
-            attachments: [],
+            customFields: mapCustomFields(entry),
+            totp: mapTotp(entry),
+            attachments: mapAttachments(entry, binaryPool: binaryPool),
             created: entry.times?.creationTime ?? Date(timeIntervalSince1970: 0),
             modified: entry.times?.lastModificationTime ?? Date(timeIntervalSince1970: 0)
         )
+    }
+
+    /// Tous les champs hors standards et hors champs TOTP consommés. `isProtected` reflète la
+    /// protection KDBX (`Protected="True"` sur disque) : seul le cas `.regular` est en clair.
+    private static func mapCustomFields(_ entry: KDBX.Entry) -> [CustomField] {
+        entry.strings.compactMap { field -> CustomField? in
+            guard !standardKeys.contains(field.key), !TotpParser.reservedKeys.contains(field.key) else {
+                return nil
+            }
+            return CustomField(
+                key: field.key,
+                value: field.value.revealedString,
+                isProtected: isProtectedOnDisk(field.value)
+            )
+        }
+    }
+
+    /// Convention `otpauth://` d'abord (champ `otp`), sinon KeePassXC (`TOTP Seed`/`TOTP Settings`).
+    private static func mapTotp(_ entry: KDBX.Entry) -> TotpConfig? {
+        func value(_ key: String) -> String? {
+            entry.strings.first { $0.key == key }?.value.revealedString
+        }
+        if let otp = value("otp"), let config = TotpParser.fromURI(otp) {
+            return config
+        }
+        if let seed = value("TOTP Seed") {
+            return TotpParser.fromKeePassXC(seed: seed, settings: value("TOTP Settings"))
+        }
+        return nil
+    }
+
+    /// Résout les pièces jointes : `.inline` porte les octets ; `.ref(index)` pointe dans le pool
+    /// de binaires dédupliqué du fichier. Une référence hors bornes est ignorée (fichier illisible
+    /// sur ce point plutôt que de planter l'ouverture entière).
+    private static func mapAttachments(_ entry: KDBX.Entry, binaryPool: [Data]) -> [Attachment] {
+        entry.binaries.compactMap { binary -> Attachment? in
+            switch binary.value {
+            case let .inline(data, _):
+                return Attachment(name: binary.key, data: data)
+            case let .ref(index):
+                let slot = Int(index)
+                guard slot >= 0, slot < binaryPool.count else {
+                    return nil
+                }
+                return Attachment(name: binary.key, data: binaryPool[slot])
+            }
+        }
+    }
+
+    /// `true` quand la valeur est chiffrée au repos (`Protected="True"`). Le lecteur KDBXKit émet
+    /// `.regular` pour le clair et `.lazyInnerCipher` pour un nœud protégé ; `.unprotected` sert au
+    /// ré-encodage protégé côté écriture. Seul `.regular` est donc en clair.
+    private static func isProtectedOnDisk(_ value: KDBX.ProtectedString.Value) -> Bool {
+        switch value {
+        case .regular:
+            return false
+        case .unprotected, .protectedInMemory, .lazyInnerCipher:
+            return true
+        }
     }
 }

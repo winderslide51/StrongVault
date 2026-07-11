@@ -5,6 +5,7 @@
   "maximumBlankLines": 1,
   "respectsExistingLineBreaks": true,
   "lineBreakBeforeEachArgument": false,
+  "multiElementCollectionTrailingCommas": false,
   "rules": {
     "AlwaysUseLowerCamelCase": true,
     "NeverForceUnwrap": true,
