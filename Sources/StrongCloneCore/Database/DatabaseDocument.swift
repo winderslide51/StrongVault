@@ -30,20 +30,56 @@ public struct DatabaseDocument: Sendable, Equatable {
     }
 }
 
+/// Base ouverte **avec** sa clé composite 32 octets — utilisé pour l'enrôlement biométrique
+/// (change `faceid-unlock`) : la clé est stockée en Keychain derrière FaceID pour rouvrir la
+/// base sans re-saisir le mot de passe. `compositeKey` accorde la même autorité que le mot de
+/// passe : à protéger comme tel (jamais loggée, jamais persistée hors Keychain).
+public struct OpenedDatabase: Sendable {
+    public let document: DatabaseDocument
+    public let compositeKey: Data
+
+    public init(document: DatabaseDocument, compositeKey: Data) {
+        self.document = document
+        self.compositeKey = compositeKey
+    }
+}
+
 extension DatabaseDocument {
     /// Ouvre des octets `.kdbx` avec les identifiants fournis et mappe le contenu vers le
     /// modèle domaine. Ne réimplémente aucune crypto : délègue à `KDBXReader.parse` (CLAUDE.md §6).
     public static func open(data: Data, credentials: DatabaseCredential) throws -> DatabaseDocument {
+        let (_, content) = try parse(data: data, credentials: credentials)
+        return map(content)
+    }
+
+    /// Comme `open`, mais renvoie aussi la clé composite 32 o pour l'enrôlement biométrique.
+    /// À n'appeler que lorsqu'on veut activer FaceID (le chemin d'ouverture normal utilise `open`).
+    public static func openReturningCompositeKey(
+        data: Data,
+        credentials: DatabaseCredential
+    ) throws -> OpenedDatabase {
+        let (unlock, content) = try parse(data: data, credentials: credentials)
+        return OpenedDatabase(document: map(content), compositeKey: unlock.keyDataBytes.toData())
+    }
+
+    private static func parse(
+        data: Data,
+        credentials: DatabaseCredential
+    ) throws -> (UnlockData, KDBXContent) {
         let unlock = try makeUnlockData(credentials)
-        let content: KDBXContent
         do {
             // `parse` a un typed throw `throws(KDBXReader.Error)` : `error` est déjà typé.
-            content = try KDBXReader.parse(data, unlockData: unlock)
+            return (unlock, try KDBXReader.parse(data, unlockData: unlock))
         } catch {
             throw mapReaderError(error)
         }
-        let root = mapGroup(content.database.root.group)
-        return DatabaseDocument(name: content.database.meta.databaseName, root: root)
+    }
+
+    private static func map(_ content: KDBXContent) -> DatabaseDocument {
+        DatabaseDocument(
+            name: content.database.meta.databaseName,
+            root: mapGroup(content.database.root.group)
+        )
     }
 
     // MARK: - Construction des identifiants KDBXKit

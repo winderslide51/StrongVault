@@ -1,6 +1,7 @@
 {
   "version": 1,
   "lineLength": 120,
+  "multiElementCollectionTrailingCommas": false,
   "indentation": { "spaces": 4 },
   "maximumBlankLines": 1,
   "respectsExistingLineBreaks": true,
