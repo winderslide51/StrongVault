@@ -49,7 +49,7 @@ struct RootView: View {
             }
             .navigationDestination(for: String.self) { databaseID in
                 if let database = model.databases.first(where: { $0.id == databaseID }) {
-                    UnlockGate(database: database)
+                    UnlockGate(database: database, appModel: model)
                 }
             }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: Self.kdbxTypes) { result in
@@ -77,13 +77,14 @@ struct RootView: View {
 /// `UnlockView` ; une fois le document obtenu, on bascule sur `BrowseView`.
 private struct UnlockGate: View {
     let database: DatabaseRef
+    let appModel: AppModel
     @State private var document: DatabaseDocument?
 
     var body: some View {
         if let document {
             BrowseView(document: document)
         } else {
-            UnlockView(database: database) { opened in
+            UnlockView(database: database, appModel: appModel) { opened in
                 document = opened
             }
         }
