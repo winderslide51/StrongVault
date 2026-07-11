@@ -104,7 +104,7 @@ struct UnlockView: View {
             password: password.isEmpty ? nil : password,
             keyFile: keyFileData
         )
-        let provider = database.provider
+        let provider = appModel.provider(for: database)
         let shouldEnroll = enableBiometricAfterUnlock
 
         Task {
@@ -141,7 +141,7 @@ struct UnlockView: View {
         guard !isUnlocking else { return }
         errorMessage = nil
         isUnlocking = true
-        let provider = database.provider
+        let provider = appModel.provider(for: database)
         let databaseID = database.id
         let reason = "Déverrouiller « \(database.displayName) »"
 
