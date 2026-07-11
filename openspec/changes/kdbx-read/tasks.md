@@ -29,11 +29,13 @@
 
 ## 3. App — accès fichier & UI (device, buildé/testé en CI)
 
-- [ ] 3.1 `LocalStorageProvider` : `UIDocumentPicker` + security-scoped bookmark, `load()`
-- [ ] 3.2 Écran Unlock (mot de passe + key file optionnel, affichage d'erreur)
-- [ ] 3.3 Écran Browse (arborescence groupes/entrées)
-- [ ] 3.4 Écran Entry detail (révéler/copier, TOTP + compte à rebours, champs custom,
-      liste des pièces jointes) — mot de passe masqué par défaut
+- [x] 3.1 `LocalStorageProvider` : `fileImporter` + security-scoped bookmark, `load()`
+      (conforme au protocole Core `StorageProvider`, lecture seule).
+- [x] 3.2 Écran Unlock (mot de passe + key file optionnel, erreurs typées affichées).
+- [~] 3.3 Écran Browse **minimal** : liste à plat des entrées (`allEntriesRecursive`). Arbre
+      complet des groupes reporté au change de suivi.
+- [~] 3.4 Révéler/copier (mot de passe masqué par défaut, presse-papier auto-effacé §5). TOTP +
+      compte à rebours, champs custom et pièces jointes **reportés** (tranche minimale).
 
 ## 4. Tests
 
