@@ -2,10 +2,11 @@ import StrongCloneCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Écran de déverrouillage : mot de passe + key file optionnel, avec affichage d'erreur typée.
-/// À l'ouverture réussie, remonte le `DatabaseDocument` au parent (navigation vers Browse).
+/// Écran de déverrouillage : mot de passe + key file optionnel, ou **FaceID** si activé pour la
+/// base. À l'ouverture réussie, remonte le `DatabaseDocument` au parent (navigation vers Browse).
 struct UnlockView: View {
     let database: DatabaseRef
+    let appModel: AppModel
     let onUnlocked: (DatabaseDocument) -> Void
 
     @State private var password = ""
@@ -14,9 +15,25 @@ struct UnlockView: View {
     @State private var showingKeyFilePicker = false
     @State private var errorMessage: String?
     @State private var isUnlocking = false
+    @State private var enableBiometricAfterUnlock = false
+
+    private var biometricEnabled: Bool { appModel.isBiometricEnabled(database.id) }
+    private var biometricAvailable: Bool { appModel.biometricEvaluator.isAvailable }
+    private var biometricLabel: String { appModel.biometricEvaluator.label }
 
     var body: some View {
         Form {
+            if biometricEnabled && biometricAvailable {
+                Section {
+                    Button {
+                        unlockWithBiometrics()
+                    } label: {
+                        Label("Déverrouiller avec \(biometricLabel)", systemImage: "faceid")
+                    }
+                    .disabled(isUnlocking)
+                }
+            }
+
             Section("Mot de passe") {
                 SecureField("Mot de passe maître", text: $password)
                     .textContentType(.password)
@@ -33,6 +50,14 @@ struct UnlockView: View {
                     }
                 } else {
                     Button("Choisir un key file…") { showingKeyFilePicker = true }
+                }
+            }
+
+            if biometricAvailable && !biometricEnabled {
+                Section {
+                    Toggle("Activer \(biometricLabel) pour cette base", isOn: $enableBiometricAfterUnlock)
+                } footer: {
+                    Text("La clé sera protégée par \(biometricLabel) et invalidée si la biométrie change.")
                 }
             }
 
@@ -80,14 +105,26 @@ struct UnlockView: View {
             keyFile: keyFileData
         )
         let provider = database.provider
+        let shouldEnroll = enableBiometricAfterUnlock
 
         Task {
             do {
                 let data = try await provider.load()
-                // Ouverture (KDF coûteux) hors du thread principal.
-                let document = try await Task.detached {
-                    try DatabaseDocument.open(data: data, credentials: credential)
-                }.value
+                // Ouverture (KDF coûteux) hors du thread principal. On ne matérialise la clé
+                // composite (autorité = mot de passe maître) que si l'utilisateur active FaceID.
+                let document: DatabaseDocument
+                if shouldEnroll {
+                    let opened = try await Task.detached {
+                        try DatabaseDocument.openReturningCompositeKey(data: data, credentials: credential)
+                    }.value
+                    // Échec d'enrôlement (ex. pas de code d'appareil) : on n'empêche pas l'ouverture.
+                    try? await appModel.enableBiometric(databaseID: database.id, compositeKey: opened.compositeKey)
+                    document = opened.document
+                } else {
+                    document = try await Task.detached {
+                        try DatabaseDocument.open(data: data, credentials: credential)
+                    }.value
+                }
                 isUnlocking = false
                 onUnlocked(document)
             } catch let error as DatabaseOpenError {
@@ -96,6 +133,38 @@ struct UnlockView: View {
             } catch {
                 isUnlocking = false
                 errorMessage = "Ouverture impossible : \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func unlockWithBiometrics() {
+        guard !isUnlocking else { return }
+        errorMessage = nil
+        isUnlocking = true
+        let provider = database.provider
+        let databaseID = database.id
+        let reason = "Déverrouiller « \(database.displayName) »"
+
+        Task {
+            do {
+                guard let credential = try await appModel.biometricCredential(databaseID: databaseID, reason: reason)
+                else {
+                    // `nil` = item Keychain absent/invalidé (biométrie changée) : on nettoie
+                    // l'état d'enrôlement obsolète pour masquer le bouton, puis repli saisie.
+                    try? await appModel.disableBiometric(databaseID: databaseID)
+                    isUnlocking = false
+                    errorMessage = "\(biometricLabel) n'est plus disponible pour cette base. Saisissez le mot de passe."
+                    return
+                }
+                let data = try await provider.load()
+                let document = try await Task.detached {
+                    try DatabaseDocument.open(data: data, credentials: credential)
+                }.value
+                isUnlocking = false
+                onUnlocked(document)
+            } catch {
+                isUnlocking = false
+                errorMessage = "Déverrouillage par \(biometricLabel) impossible. Saisissez le mot de passe."
             }
         }
     }
