@@ -8,8 +8,10 @@ options:
   createIntermediateGroups: true
 
 packages:
-  # Package Core local (Swift pur, testable). Les dépendances externes (KDBXKit,
-  # swift-google-drive-client) seront ajoutées dans leurs changes OpenSpec respectifs.
+  # Package Core local (Swift pur, testable). KDBXKit (change `kdbx-read`) est tiré
+  # **transitivement** via ce package (déclaré dans Package.swift) : l'app n'importe pas
+  # KDBXKit directement, seul Core le fait. swift-google-drive-client viendra de même avec
+  # le change `google-drive`.
   StrongCloneCore:
     path: .
 

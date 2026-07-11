@@ -1,10 +1,19 @@
-## 1. Spike KDBXKit (bloquant, avant toute UI)
+> **Résultat du spike (2026-07-11)** : KDBXKit **1.3.0** validé. Il lit les bases KeePassXC
+> KDBX 4.x (AES-256, KDF AES-KDF), lève des erreurs typées (`KDBXReader.Error.wrongCredentials`,
+> `.unsupportedFormatVersion`, `.corruptedHMAC`), et **expose la clé composite 32 o** via
+> `UnlockData.keyDataBytes` / `init(rawKeyData:)` → **FaceID Option A retenue** (voir `faceid-unlock`).
+> Pas de repli KeePassKit nécessaire. Deux limites relevées, non bloquantes pour la tranche
+> minimale : (a) `keepassxc-cli db-create` ne permet pas de choisir version/cipher/KDF (produit
+> du KDBX 4.x AES-KDF) → matrice 3.1/4.0/ChaCha20/Argon2 reportée au change de suivi ; (b) KDBXKit
+> 1.3.0 lit mal les key files **XML v2.0** de KeePassXC (décode le hex comme du base64) → on
+> utilise un **key file binaire brut 32 o**, correctement géré des deux côtés.
 
-- [ ] 1.1 Ajouter la dépendance KDBXKit dans `Package.swift` et `project.yml`
-- [ ] 1.2 Committer des golden files de test générés par KeePassXC (KDBX 3.1, 4.0, 4.1 ;
-      AES-256 + Argon2, ChaCha20 + Argon2 ; un avec key file ; mots de passe factices)
-- [ ] 1.3 Test Core : ouvrir chaque golden file et asserter un contenu connu (échoue si
-      KDBXKit ne gère pas un cas requis → déclenche le repli KeePassKit, documenté)
+- [x] 1.1 Ajouter la dépendance KDBXKit dans `Package.swift` et `project.yml`
+- [~] 1.2 Golden files KeePassXC committés : `demo-password.kdbx` (AES-256/AES-KDF, mdp seul) et
+      `demo-keyfile.kdbx` + `demo-keyfile.key` (mdp + key file brut). Mots de passe factices
+      documentés. Matrice 3.1/4.0/4.1 + ChaCha20 + Argon2 **reportée** (cf. limite `keepassxc-cli`).
+- [x] 1.3 Test Core `KDBXKitSpikeTests` : ouvre chaque golden file, asserte le contenu connu,
+      vérifie l'erreur typée sur mauvais mot de passe, et le round-trip clé composite (FaceID).
 
 ## 2. Core — ouverture & mapping (Swift pur, testable)
 
