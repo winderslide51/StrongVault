@@ -29,15 +29,39 @@ final class DatabaseSessionModel {
     private var session: DatabaseEditSession
     private let provider: any StorageProvider
 
+    /// Révision distante attendue à la prochaine écriture, **capturée au chargement** puis
+    /// rafraîchie après chaque sauvegarde réussie. Sert de `expectedRemote` pour la détection de
+    /// conflit Drive (`nil` en local, où elle est ignorée). Change `google-drive-sync`.
+    private var expectedRemote: StorageMetadata?
+
+    /// `true` pour une source distante (Drive) : la sauvegarde y **exige** une baseline de
+    /// révision (`expectedRemote` avec jeton). Si la capture a échoué au chargement, on refuse
+    /// d'uploader à l'aveugle (risque d'écraser une version plus récente sans le savoir) et on
+    /// invite à recharger. En local, aucune baseline requise.
+    private let requiresRevisionBaseline: Bool
+
     /// Modifications non sauvegardées en attente.
     private(set) var hasUnsavedChanges = false
     private(set) var isSaving = false
+    /// `true` si la dernière sauvegarde a été refusée car la base a changé sur Drive depuis le
+    /// chargement (l'UI propose alors de recharger). Aucun octet n'a été écrit.
+    var hasConflict = false
+    /// Fermeture déclenchée par « Recharger » après conflit : re-télécharge la base en repassant
+    /// par l'écran de déverrouillage (fixée par la couche de navigation). Jamais un secret.
+    var reloadHandler: (@MainActor () -> Void)?
     /// Message d'erreur non sensible pour l'UI (jamais de secret).
     var errorMessage: String?
 
-    init(session: DatabaseEditSession, provider: any StorageProvider) {
+    init(
+        session: DatabaseEditSession,
+        provider: any StorageProvider,
+        expectedRemote: StorageMetadata? = nil,
+        requiresRevisionBaseline: Bool = false
+    ) {
         self.session = session
         self.provider = provider
+        self.expectedRemote = expectedRemote
+        self.requiresRevisionBaseline = requiresRevisionBaseline
     }
 
     /// Projection lecture seule courante (reconstruite depuis le `KDBXContent` muté).
@@ -114,15 +138,34 @@ final class DatabaseSessionModel {
     /// du thread principal. À l'issue, `hasUnsavedChanges` repasse à `false`.
     func save() async {
         guard !isSaving else { return }
+        // Source distante sans baseline de révision (capture échouée au chargement) : uploader
+        // écraserait sans détection une éventuelle version plus récente. On refuse et on invite
+        // à recharger — même issue qu'un conflit avéré, aucun octet écrit.
+        if requiresRevisionBaseline, expectedRemote?.revisionToken == nil {
+            hasConflict = true
+            return
+        }
         isSaving = true
         errorMessage = nil
+        hasConflict = false
         // Copie de valeur `Sendable` pour traverser l'isolation vers la tâche détachée.
         let snapshot = session
         let provider = provider
+        let expected = expectedRemote
         do {
             let data = try await Task.detached { try snapshot.serialize() }.value
-            _ = try await provider.save(data, expectedRemote: nil)
+            // `expectedRemote` porte la révision distante attendue : le provider Drive refuse
+            // d'écraser si elle a changé (conflit). Ignoré en local.
+            let updated = try await provider.save(data, expectedRemote: expected)
+            expectedRemote = updated  // nouvelle révision de référence pour la prochaine écriture
             hasUnsavedChanges = false
+        } catch let error as StorageError {
+            // La base a changé sur Drive : aucun octet écrit, on invite à recharger (pas d'écrasement).
+            if case .conflict = error {
+                hasConflict = true
+            } else {
+                errorMessage = "Sauvegarde impossible."
+            }
         } catch {
             errorMessage = "Sauvegarde impossible."
         }

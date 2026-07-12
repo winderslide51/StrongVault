@@ -7,7 +7,9 @@ import UniformTypeIdentifiers
 struct UnlockView: View {
     let database: DatabaseRef
     let appModel: AppModel
-    let onUnlocked: (DatabaseEditSession) -> Void
+    /// Remonte la session ouverte **et** la révision distante capturée au chargement (jeton de
+    /// référence pour la détection de conflit à la sauvegarde ; `nil` si indisponible).
+    let onUnlocked: (DatabaseEditSession, StorageMetadata?) -> Void
 
     @State private var password = ""
     @State private var keyFileData: Data?
@@ -109,6 +111,12 @@ struct UnlockView: View {
 
         Task {
             do {
+                // Révision distante capturée AVANT le téléchargement : la baseline est ainsi
+                // antérieure ou égale aux octets chargés. Une écriture tierce intercalée produit
+                // au pire un FAUX conflit à la sauvegarde (l'utilisateur recharge), jamais un
+                // écrasement silencieux. Best-effort : `nil` si indisponible (la sauvegarde
+                // distante sera alors refusée avec invitation à recharger). Jamais un secret.
+                let expectedRemote = try? await provider.metadata()
                 let data = try await provider.load()
                 // Ouverture (KDF coûteux) hors du thread principal. On ne matérialise la clé
                 // composite (autorité = mot de passe maître) que si l'utilisateur active FaceID.
@@ -126,7 +134,7 @@ struct UnlockView: View {
                     }.value
                 }
                 isUnlocking = false
-                onUnlocked(session)
+                onUnlocked(session, expectedRemote)
             } catch let error as DatabaseOpenError {
                 isUnlocking = false
                 errorMessage = Self.message(for: error)
@@ -156,12 +164,15 @@ struct UnlockView: View {
                     errorMessage = "\(biometricLabel) n'est plus disponible pour cette base. Saisissez le mot de passe."
                     return
                 }
+                // Même ordre que le chemin mot de passe : baseline AVANT téléchargement
+                // (au pire un faux conflit, jamais un écrasement silencieux).
+                let expectedRemote = try? await provider.metadata()
                 let data = try await provider.load()
                 let session = try await Task.detached {
                     try DatabaseEditSession.open(data: data, credentials: credential)
                 }.value
                 isUnlocking = false
-                onUnlocked(session)
+                onUnlocked(session, expectedRemote)
             } catch {
                 isUnlocking = false
                 errorMessage = "Déverrouillage par \(biometricLabel) impossible. Saisissez le mot de passe."

@@ -6,8 +6,10 @@ import GoogleDriveClient
 /// l'Info.plist (clés non secrètes pour une app iOS/PKCE — jamais commitées). Tant qu'elles
 /// sont vides, l'UI Drive s'affiche mais la connexion réelle est inactive.
 enum GoogleDriveConfig {
-    /// Scope lecture seule : suffisant pour récupérer une base `.kdbx` existante.
-    static let scope = "https://www.googleapis.com/auth/drive.readonly"
+    /// Scope lecture **et écriture** : l'upload d'une base modifiée l'exige (change
+    /// `google-drive-sync`). `drive.file` ne suffirait pas car le fichier n'est pas créé par
+    /// l'app. Les sessions existantes doivent se reconnecter (re-consentement) après cette montée.
+    static let scope = "https://www.googleapis.com/auth/drive"
 
     static func make() -> Config {
         let info = Bundle.main.infoDictionary

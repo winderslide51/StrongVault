@@ -7,10 +7,16 @@ import Foundation
 /// avec un `FakeDriveClient`, la connexion réelle restant device/manuel.
 public protocol DriveClient: Sendable {
     /// Métadonnées d'un fichier Drive : `identifier` = `fileId`, `displayName` = nom,
-    /// `modifiedAt` = date de modification. Drive n'expose pas la taille sur ce chemin
+    /// `modifiedAt` = date de modification, `revisionToken` = jeton de révision opaque
+    /// (`headRevisionId`/`modifiedTime`). Drive n'expose pas la taille sur ce chemin
     /// (`sizeBytes` reste `nil`).
     func metadata(fileId: String) async throws -> StorageMetadata
 
     /// Télécharge les octets bruts du fichier Drive.
     func download(fileId: String) async throws -> Data
+
+    /// Téléverse de nouveaux octets pour un fichier Drive existant et renvoie ses métadonnées
+    /// à jour, dont un **nouveau** `revisionToken` reflétant la révision distante après écriture.
+    /// La détection de conflit (comparaison de révision avant appel) est du ressort du provider.
+    func upload(fileId: String, data: Data) async throws -> StorageMetadata
 }

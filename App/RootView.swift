@@ -110,11 +110,20 @@ private struct UnlockGate: View {
             if let sessionModel {
                 BrowseView(model: sessionModel)
             } else {
-                UnlockView(database: database, appModel: appModel) { session in
-                    sessionModel = DatabaseSessionModel(
+                UnlockView(database: database, appModel: appModel) { session, expectedRemote in
+                    // Source Drive : la sauvegarde exige une baseline de révision (sinon refus +
+                    // invitation à recharger, jamais d'upload aveugle).
+                    let isDrive = if case .drive = database.source { true } else { false }
+                    let model = DatabaseSessionModel(
                         session: session,
-                        provider: appModel.provider(for: database)
+                        provider: appModel.provider(for: database),
+                        expectedRemote: expectedRemote,
+                        requiresRevisionBaseline: isDrive
                     )
+                    // « Recharger » après conflit Drive : détruit la session pour repasser par
+                    // Unlock (re-téléchargement de la base à jour). Purge aussi les secrets édités.
+                    model.reloadHandler = { sessionModel = nil }
+                    sessionModel = model
                 }
             }
         }
