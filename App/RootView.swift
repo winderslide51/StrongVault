@@ -94,18 +94,33 @@ struct RootView: View {
 }
 
 /// Relie l'écran Unlock à l'écran Browse : tant que la base n'est pas ouverte, on affiche
-/// `UnlockView` ; une fois le document obtenu, on bascule sur `BrowseView`.
+/// `UnlockView` ; une fois la session obtenue, on bascule sur `BrowseView`.
+///
+/// Verrouillage/purge (CLAUDE.md §4.4) : au passage en arrière-plan, on détruit la session
+/// (`sessionModel = nil`). Cela purge le `KDBXContent` déchiffré, la clé composite **et l'état
+/// d'édition non sauvegardé** — aucun secret édité résiduel. L'utilisateur repasse par Unlock.
 private struct UnlockGate: View {
     let database: DatabaseRef
     let appModel: AppModel
-    @State private var document: DatabaseDocument?
+    @State private var sessionModel: DatabaseSessionModel?
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        if let document {
-            BrowseView(document: document)
-        } else {
-            UnlockView(database: database, appModel: appModel) { opened in
-                document = opened
+        Group {
+            if let sessionModel {
+                BrowseView(model: sessionModel)
+            } else {
+                UnlockView(database: database, appModel: appModel) { session in
+                    sessionModel = DatabaseSessionModel(
+                        session: session,
+                        provider: appModel.provider(for: database)
+                    )
+                }
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                sessionModel = nil
             }
         }
     }

@@ -62,7 +62,10 @@ extension DatabaseDocument {
         return OpenedDatabase(document: map(content), compositeKey: unlock.keyDataBytes.toData())
     }
 
-    private static func parse(
+    /// `internal` : la session d'édition (`DatabaseEditSession.open`) réutilise ce chemin pour
+    /// conserver **à la fois** l'`UnlockData` (re-chiffrement à la sauvegarde) et le `KDBXContent`
+    /// mutable — au lieu de reparser ou de reconstruire depuis le domaine.
+    static func parse(
         data: Data,
         credentials: DatabaseCredential
     ) throws -> (UnlockData, KDBXContent) {
@@ -77,7 +80,9 @@ extension DatabaseDocument {
 
     /// Mappe le contenu KDBXKit vers le modèle domaine — utilisé par `open` **et**
     /// `openReturningCompositeKey` (le déverrouillage FaceID profite du même mapping enrichi).
-    private static func map(_ content: KDBXContent) -> DatabaseDocument {
+    /// `internal` (pas `private`) pour que la session d'édition (`DatabaseEditSession`) puisse
+    /// reprojeter en lecture seule le `KDBXContent` muté sans le reconstruire.
+    static func map(_ content: KDBXContent) -> DatabaseDocument {
         // Pool de binaires (KDBX 4.x) : les pièces jointes `.ref(index)` pointent ici. On mappe
         // vers les seuls octets, c'est tout ce dont `Attachment` a besoin.
         let binaryPool = content.innerHeader.binaryContent.map(\.data)
