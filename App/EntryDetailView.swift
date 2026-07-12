@@ -4,10 +4,42 @@ import SwiftUI
 /// Détail complet d'une entrée : identifiant, mot de passe (masqué par défaut), URL, notes, code
 /// **TOTP** avec compte à rebours, champs personnalisés (masqués si protégés) et liste des pièces
 /// jointes (nom + taille). Toute copie passe par `Clipboard` (auto-effacement + `localOnly`).
+///
+/// Éditable : le bouton « Modifier » présente `EntryEditView`. L'entrée est relue depuis la
+/// projection lecture seule du modèle (elle reflète les éditions déjà appliquées).
 struct EntryDetailView: View {
-    let entry: Entry
+    let model: DatabaseSessionModel
+    let entryID: UUID
+
+    @State private var showingEdit = false
+
+    /// Entrée courante, reprojetée depuis la session (reflète une édition précédente).
+    private var entry: Entry? {
+        model.document.root.allEntriesRecursive.first { $0.id == entryID }
+    }
 
     var body: some View {
+        Group {
+            if let entry {
+                content(for: entry)
+                    .navigationTitle(entry.title.isEmpty ? "(sans titre)" : entry.title)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button("Modifier") { showingEdit = true }
+                        }
+                    }
+                    .sheet(isPresented: $showingEdit) {
+                        EntryEditView(model: model, entry: entry)
+                    }
+            } else {
+                // L'entrée a été supprimée (ou la base verrouillée) : rien à afficher.
+                ContentUnavailableView("Entrée indisponible", systemImage: "key.slash")
+            }
+        }
+    }
+
+    private func content(for entry: Entry) -> some View {
         List {
             if !entry.username.isEmpty {
                 Section("Identifiant") {
@@ -46,29 +78,32 @@ struct EntryDetailView: View {
                 }
             }
 
-            if !entry.customFields.isEmpty {
-                Section("Champs personnalisés") {
-                    ForEach(entry.customFields) { field in
-                        CustomFieldRow(field: field)
-                    }
+            customFieldsAndAttachments(for: entry)
+        }
+    }
+
+    @ViewBuilder
+    private func customFieldsAndAttachments(for entry: Entry) -> some View {
+        if !entry.customFields.isEmpty {
+            Section("Champs personnalisés") {
+                ForEach(entry.customFields) { field in
+                    CustomFieldRow(field: field)
                 }
             }
+        }
 
-            if !entry.attachments.isEmpty {
-                Section("Pièces jointes") {
-                    ForEach(entry.attachments) { attachment in
-                        LabeledContent {
-                            Text(byteSize(attachment.data.count))
-                                .foregroundStyle(.secondary)
-                        } label: {
-                            Label(attachment.name, systemImage: "paperclip")
-                        }
+        if !entry.attachments.isEmpty {
+            Section("Pièces jointes") {
+                ForEach(entry.attachments) { attachment in
+                    LabeledContent {
+                        Text(byteSize(attachment.data.count))
+                            .foregroundStyle(.secondary)
+                    } label: {
+                        Label(attachment.name, systemImage: "paperclip")
                     }
                 }
             }
         }
-        .navigationTitle(entry.title.isEmpty ? "(sans titre)" : entry.title)
-        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func byteSize(_ count: Int) -> String {

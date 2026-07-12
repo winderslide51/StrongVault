@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 struct UnlockView: View {
     let database: DatabaseRef
     let appModel: AppModel
-    let onUnlocked: (DatabaseDocument) -> Void
+    let onUnlocked: (DatabaseEditSession) -> Void
 
     @State private var password = ""
     @State private var keyFileData: Data?
@@ -112,21 +112,21 @@ struct UnlockView: View {
                 let data = try await provider.load()
                 // Ouverture (KDF coûteux) hors du thread principal. On ne matérialise la clé
                 // composite (autorité = mot de passe maître) que si l'utilisateur active FaceID.
-                let document: DatabaseDocument
+                let session: DatabaseEditSession
                 if shouldEnroll {
                     let opened = try await Task.detached {
-                        try DatabaseDocument.openReturningCompositeKey(data: data, credentials: credential)
+                        try DatabaseEditSession.openReturningCompositeKey(data: data, credentials: credential)
                     }.value
                     // Échec d'enrôlement (ex. pas de code d'appareil) : on n'empêche pas l'ouverture.
                     try? await appModel.enableBiometric(databaseID: database.id, compositeKey: opened.compositeKey)
-                    document = opened.document
+                    session = opened.session
                 } else {
-                    document = try await Task.detached {
-                        try DatabaseDocument.open(data: data, credentials: credential)
+                    session = try await Task.detached {
+                        try DatabaseEditSession.open(data: data, credentials: credential)
                     }.value
                 }
                 isUnlocking = false
-                onUnlocked(document)
+                onUnlocked(session)
             } catch let error as DatabaseOpenError {
                 isUnlocking = false
                 errorMessage = Self.message(for: error)
@@ -157,11 +157,11 @@ struct UnlockView: View {
                     return
                 }
                 let data = try await provider.load()
-                let document = try await Task.detached {
-                    try DatabaseDocument.open(data: data, credentials: credential)
+                let session = try await Task.detached {
+                    try DatabaseEditSession.open(data: data, credentials: credential)
                 }.value
                 isUnlocking = false
-                onUnlocked(document)
+                onUnlocked(session)
             } catch {
                 isUnlocking = false
                 errorMessage = "Déverrouillage par \(biometricLabel) impossible. Saisissez le mot de passe."

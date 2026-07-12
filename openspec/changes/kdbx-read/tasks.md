@@ -62,8 +62,10 @@
 
 ## 5. Interop KeePassXC (CI)
 
-- [ ] 5.1 Étape CI installant `keepassxc-cli` (brew) et ouvrant les golden files (headless,
+- [x] 5.1 Étape CI installant `keepassxc-cli` (brew) et ouvrant les golden files (headless,
       mot de passe via stdin) pour confirmer leur validité côté écosystème
+      <!-- Réalisé par kdbx-write : job core-tests installe keepassxc + `KDBXReadInteropTests`. -->
+
 - [ ] 5.2 Documenter que le round-trip write→keepassxc-cli complet arrive avec `kdbx-write`
 
 ## 6. Vérification manuelle (device — non prouvée par la CI)

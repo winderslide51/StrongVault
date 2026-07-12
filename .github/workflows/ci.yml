@@ -42,6 +42,10 @@ jobs:
         with:
           path: .build
           key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+      - name: Install keepassxc (interop write→open, CLAUDE.md §4.2)
+        # Fournit `keepassxc-cli` : les tests d'interop (spike d'écriture + ouverture headless
+        # des golden files de lecture) s'exécutent réellement au lieu d'être ignorés.
+        run: brew install keepassxc
       - name: Build
         run: swift build
       - name: Test
