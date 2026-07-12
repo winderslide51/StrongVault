@@ -333,9 +333,8 @@ final class DatabaseEditSessionTests: XCTestCase {
         // strictement identique après reparse.
         let p1 = try reparse(first)
         let p2 = try reparse(second)
+        // `header ==` couvre masterSalt + encryptionNonce (préservés, contrairement au défaut).
         XCTAssertEqual(p1.header, p2.header, "Sels/nonce préservés : les deux headers doivent être égaux")
-        XCTAssertEqual(p1.header.masterSalt, p2.header.masterSalt)
-        XCTAssertEqual(p1.header.encryptionNonce, p2.header.encryptionNonce)
         XCTAssertEqual(p1.innerHeader, p2.innerHeader)
         XCTAssertEqual(p1.database.meta, p2.database.meta)
         XCTAssertEqual(p1.database.root, p2.database.root)
