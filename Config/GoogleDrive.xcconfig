@@ -1,0 +1,10 @@
+// Config OAuth Google Drive (PKCE, pas de secret client — CLAUDE.md §6).
+// Les valeurs réelles vivent dans `GoogleDrive.xcconfig.local` (non commité, cf .gitignore) :
+//   GOOGLE_DRIVE_CLIENT_ID = NNNN-xxxx.apps.googleusercontent.com
+//   GOOGLE_DRIVE_REDIRECT_SCHEME = com.googleusercontent.apps.NNNN-xxxx
+// Vides ici : l'app compile partout (CI incluse), la connexion Drive reste inactive
+// (`GoogleDriveConfig.isConfigured == false`) tant qu'un client OAuth n'est pas fourni.
+GOOGLE_DRIVE_CLIENT_ID =
+GOOGLE_DRIVE_REDIRECT_SCHEME =
+
+#include? "GoogleDrive.xcconfig.local"
