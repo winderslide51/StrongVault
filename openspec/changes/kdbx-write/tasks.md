@@ -46,8 +46,10 @@
 
 - [x] 5.1 Étape CI **write → `keepassxc-cli` open** : le round-trip reprend le spike §1 sur les
       golden files (édition en mémoire → `KDBXWriter` → `keepassxc-cli` ré-ouvre et vérifie).
-- [x] 5.2 Test Core de round-trip **byte-identique** (`regenerateSalts: false`) pour prouver la
-      stabilité du sérialiseur hors régénération de sels.
+- [x] 5.2 Test Core de round-trip **stable** (`regenerateSalts: false`) : sels/nonce préservés et
+      contenu strictement identique après reparse. (Le byte-identique initialement visé n'est pas
+      garanti par KDBXKit : l'ordre des champs du VariantDictionary KDF — un `Dictionary` Swift —
+      peut permuter entre deux écritures, fichiers sémantiquement identiques et valides.)
 
 ## 6. Tests (Core, `swift test`)
 

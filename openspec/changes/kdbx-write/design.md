@@ -18,7 +18,8 @@ checkout `.build/checkouts/KDBXKit` (à ne pas redécouvrir) :
   XML. `.protectedInMemory` est trompeur (clair sur disque, réservé aux fichiers XML non
   chiffrés) : **interdit** pour un secret. `.regular` = clair assumé (champ non protégé).
 - **Sels** : `regenerateSalts: true` par défaut (obligation spec KDBX à chaque save) ;
-  `false` seulement pour un round-trip **byte-identique** de test.
+  `false` seulement pour un round-trip **stable** de test (sels préservés + contenu reparsé
+  identique — pas byte-identique : l'ordre du VariantDictionary KDF peut permuter).
 
 ## Goals / Non-Goals
 

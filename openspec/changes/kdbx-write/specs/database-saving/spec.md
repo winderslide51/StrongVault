@@ -13,8 +13,10 @@ sels SHALL être régénérés (`regenerateSalts: true`) à chaque sauvegarde.
 
 #### Scenario: Régénération des sels par défaut
 - **WHEN** on sauvegarde deux fois de suite la même base sans autre modification
-- **THEN** les octets diffèrent (sels/nonce régénérés), et un test byte-identique n'est
-  possible qu'en passant explicitement `regenerateSalts: false`
+- **THEN** les octets diffèrent (sels/nonce régénérés) ; avec `regenerateSalts: false`
+  explicite, les sels/nonce sont préservés et le contenu reparsé est strictement identique
+  (l'égalité d'octets stricte n'est pas garantie : l'ordre des champs du VariantDictionary
+  KDF peut permuter entre deux écritures, fichiers sémantiquement équivalents et valides)
 
 ### Requirement: Sauvegarde locale réelle via StorageProvider
 Le système SHALL implémenter réellement `StorageProvider.save(_:expectedRemote:)` pour le

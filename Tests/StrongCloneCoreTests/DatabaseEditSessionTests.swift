@@ -319,14 +319,26 @@ final class DatabaseEditSessionTests: XCTestCase {
         XCTAssertNotEqual(first, second)
     }
 
-    // MARK: - 5.2 Round-trip byte-identique (regenerateSalts: false)
+    // MARK: - 5.2 Round-trip stable sans régénération de sels (regenerateSalts: false)
 
-    func testByteIdenticalRoundTripWithoutSaltRegeneration() throws {
+    func testStableRoundTripWithoutSaltRegeneration() throws {
         let session = try makeSession()
         let first = try session.serialize(regenerateSalts: false)
         let second = try session.serialize(regenerateSalts: false)
-        // Sans régénération de sels, le sérialiseur est déterministe.
-        XCTAssertEqual(first, second)
+        // L'égalité d'octets stricte n'est PAS garantie par KDBXKit : le VariantDictionary KDF
+        // du header est sérialisé en itérant un `Dictionary` Swift, dont l'ordre peut varier
+        // d'une écriture à l'autre (observé en CI : mêmes octets de contenu, champs `$UUID`/`R`/`S`
+        // permutés — fichiers sémantiquement identiques et valides). On prouve donc la stabilité
+        // au niveau qui compte : sels/nonce PRÉSERVÉS (contrairement au défaut) et contenu
+        // strictement identique après reparse.
+        let p1 = try reparse(first)
+        let p2 = try reparse(second)
+        XCTAssertEqual(p1.header, p2.header, "Sels/nonce préservés : les deux headers doivent être égaux")
+        XCTAssertEqual(p1.header.masterSalt, p2.header.masterSalt)
+        XCTAssertEqual(p1.header.encryptionNonce, p2.header.encryptionNonce)
+        XCTAssertEqual(p1.innerHeader, p2.innerHeader)
+        XCTAssertEqual(p1.database.meta, p2.database.meta)
+        XCTAssertEqual(p1.database.root, p2.database.root)
     }
 
     // MARK: - Helper d'injection d'un champ brut (données non modélisées)
