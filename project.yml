@@ -35,6 +35,27 @@ targets:
     platform: iOS
     sources:
       - path: App
+    # Valeurs OAuth Drive injectées par xcconfig : le fichier commité est vide, les valeurs
+    # réelles viennent de `Config/GoogleDrive.xcconfig.local` (non commité). Aucun secret
+    # dans le repo (CLAUDE.md §4/§6) — le clientID PKCE reste hors dépôt par principe.
+    configFiles:
+      Debug: Config/GoogleDrive.xcconfig
+      Release: Config/GoogleDrive.xcconfig
+    # Info.plist généré par XcodeGen (non commité) : porte les clés custom Drive et le
+    # scheme de redirection OAuth ($(VAR) résolus au build depuis l'xcconfig). Les clés
+    # standard restent synthétisées via INFOPLIST_KEY_* (GENERATE_INFOPLIST_FILE).
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        GoogleDriveClientID: "$(GOOGLE_DRIVE_CLIENT_ID)"
+        GoogleDriveRedirectURI: "$(GOOGLE_DRIVE_REDIRECT_SCHEME)://"
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: google-drive-oauth
+            CFBundleURLSchemes:
+              - "$(GOOGLE_DRIVE_REDIRECT_SCHEME)"
     dependencies:
       - package: StrongCloneCore
         product: StrongCloneCore

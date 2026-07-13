@@ -6,12 +6,23 @@ public struct StorageMetadata: Sendable, Equatable {
     public var displayName: String
     public var modifiedAt: Date?
     public var sizeBytes: Int?
+    /// Jeton de révision **opaque** du côté distant (ex. `headRevisionId`/`modifiedTime` Drive),
+    /// capturé au chargement et comparé avant écriture pour détecter un conflit. `nil` en local
+    /// (pas de concurrence distante). Le Core ne l'interprète pas : il se contente de l'égalité.
+    public var revisionToken: String?
 
-    public init(identifier: String, displayName: String, modifiedAt: Date? = nil, sizeBytes: Int? = nil) {
+    public init(
+        identifier: String,
+        displayName: String,
+        modifiedAt: Date? = nil,
+        sizeBytes: Int? = nil,
+        revisionToken: String? = nil
+    ) {
         self.identifier = identifier
         self.displayName = displayName
         self.modifiedAt = modifiedAt
         self.sizeBytes = sizeBytes
+        self.revisionToken = revisionToken
     }
 }
 

@@ -129,6 +129,25 @@ private struct GroupListView: View {
         } message: {
             Text(model.errorMessage ?? "")
         }
+        .alert(
+            "Impossible de sauvegarder sur Drive",
+            isPresented: .init(
+                get: { model.hasConflict },
+                set: { if !$0 { model.hasConflict = false } }
+            )
+        ) {
+            Button("Recharger") {
+                model.hasConflict = false
+                model.reloadHandler?()
+            }
+            Button("Annuler", role: .cancel) { model.hasConflict = false }
+        } message: {
+            Text(
+                "La base a changé sur Google Drive depuis l'ouverture (ou sa version n'a pas pu "
+                    + "être vérifiée). Vos modifications n'ont pas été envoyées. Rechargez pour "
+                    + "récupérer la dernière version avant de réappliquer vos changements."
+            )
+        }
     }
 
     private func name(of group: StrongCloneCore.Group) -> String {

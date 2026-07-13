@@ -10,16 +10,19 @@ struct DriveFile: Identifiable, Sendable, Equatable {
 
 /// Implémentation device de `DriveClient` : enveloppe le SDK `swift-google-drive-client`
 /// (darrarski), qui parle directement à l'API HTTP Drive (pas de SDK Google). L'OAuth (PKCE,
-/// sans secret client) et le stockage/refresh des jetons sont gérés par le SDK ; les jetons
-/// vivent dans le Keychain du SDK, jamais dans le repo (CLAUDE.md §6).
+/// sans secret client) et le refresh des jetons sont gérés par le SDK ; les jetons sont
+/// persistés dans le Keychain via `DriveTokenKeychain` (`...ThisDeviceOnly`, **non-iCloud**),
+/// jamais dans le repo (CLAUDE.md §4/§6).
 ///
-/// « Build only » en v1 : le code compile et fonctionne dès qu'un vrai `clientID`/`redirectURI`
-/// Google Cloud est fourni (voir `GoogleDriveConfig`).
+/// La connexion réelle devient effective dès qu'un vrai `clientID`/`redirectURI` Google Cloud
+/// est fourni (voir `GoogleDriveConfig`) ; le provisioning reste une tâche device.
 struct GoogleDriveClientLive: DriveClient {
     private let client: Client
 
     init(config: Config) {
-        client = .live(config: config)
+        // Keychain custom : les jetons OAuth ne doivent pas être synchronisés iCloud (le keychain
+        // par défaut du SDK utilise `kSecAttrSynchronizable = true` — lève la réserve §5.5).
+        client = .live(config: config, keychain: DriveTokenKeychain.make())
     }
 
     // MARK: - DriveClient (Core)
@@ -27,12 +30,7 @@ struct GoogleDriveClientLive: DriveClient {
     func metadata(fileId: String) async throws -> StorageMetadata {
         do {
             let file = try await client.getFile(fileId: fileId)
-            return StorageMetadata(
-                identifier: file.id,
-                displayName: file.name,
-                modifiedAt: file.modifiedTime,
-                sizeBytes: nil  // l'API `files.get` de ce chemin n'expose pas la taille
-            )
+            return Self.metadata(from: file)
         } catch let error as GetFile.Error {
             throw Self.mapResponseError(notAuthorized: error.isNotAuthorized, statusCode: error.statusCode, error)
         } catch {
@@ -48,6 +46,46 @@ struct GoogleDriveClientLive: DriveClient {
         } catch {
             throw Self.mapTransport(error)
         }
+    }
+
+    func upload(fileId: String, data: Data) async throws -> StorageMetadata {
+        do {
+            // `updateFileData` (multipart PATCH) remplace le contenu d'un fichier existant et
+            // renvoie ses métadonnées à jour (nouveau `modifiedTime` ⇒ nouveau jeton de révision).
+            let file = try await client.updateFileData(fileId: fileId, data: data, mimeType: Self.kdbxMimeType)
+            return Self.metadata(from: file)
+        } catch let error as UpdateFileData.Error {
+            throw Self.mapResponseError(notAuthorized: error.isNotAuthorized, statusCode: error.statusCode, error)
+        } catch {
+            throw Self.mapTransport(error)
+        }
+    }
+
+    /// Type MIME neutre pour un `.kdbx` (conteneur binaire opaque). Le SDK exige un `mimeType`
+    /// dans le multipart d'upload ; on ne cherche pas à préserver celui d'origine (cosmétique).
+    private static let kdbxMimeType = "application/octet-stream"
+
+    /// Mappe un `File` Drive vers `StorageMetadata`. Le SDK darrarski n'expose **pas**
+    /// `headRevisionId` (voir `File.apiFields` : `id,mimeType,name,createdTime,modifiedTime`) :
+    /// on dérive donc le **jeton de révision opaque** de `modifiedTime` (ISO 8601, précision
+    /// milliseconde). Une écriture change `modifiedTime`, donc le jeton — suffisant pour la
+    /// détection best-effort de conflit (design.md).
+    private static func metadata(from file: File) -> StorageMetadata {
+        StorageMetadata(
+            identifier: file.id,
+            displayName: file.name,
+            modifiedAt: file.modifiedTime,
+            sizeBytes: nil,  // l'API `files.get`/`files.update` de ce chemin n'expose pas la taille
+            revisionToken: revisionToken(for: file.modifiedTime)
+        )
+    }
+
+    private static func revisionToken(for date: Date) -> String {
+        // `ISO8601DateFormatter` n'est pas `Sendable` : on l'instancie localement (pas d'état
+        // mutable partagé, concurrency stricte OK). Coût négligeable sur les chemins save/metadata.
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
     }
 
     // MARK: - Authentification (passerelle SDK, consommée par l'App)
@@ -104,6 +142,11 @@ extension GetFileData.Error {
 }
 
 extension ListFiles.Error {
+    fileprivate var isNotAuthorized: Bool { if case .notAuthorized = self { return true } else { return false } }
+    fileprivate var statusCode: Int? { if case let .response(code, _) = self { return code } else { return nil } }
+}
+
+extension UpdateFileData.Error {
     fileprivate var isNotAuthorized: Bool { if case .notAuthorized = self { return true } else { return false } }
     fileprivate var statusCode: Int? { if case let .response(code, _) = self { return code } else { return nil } }
 }
